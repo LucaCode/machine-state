@@ -1,0 +1,35 @@
+{
+  "name": "machine-stats",
+  "version": "0.1.0",
+  "description": "Small package to get stats of the current machine.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "npm run compile",
+    "compile": "rm -rf dist/ && tsc -p ./",
+    "prepublishOnly": "npm run build",
+    "pretest": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LucaCode/machine-stats.git"
+  },
+  "files": [
+    "dist/**/*",
+    "!.DS_Store"
+  ],
+  "author": {
+    "name": "Ing. Luca Gian Scaringella",
+    "email": "lucacode1@gmail.com"
+  },
+  "dependencies": {
+    "@types/node": "^16.6.0",
+    "co": "4.6.0",
+    "pidusage": "2.0.21",
+    "child_process": "1.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.5"
+  }
+}
