@@ -1,6 +1,6 @@
 {
   "name": "machine-stats",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Small package to get stats of the current machine.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
