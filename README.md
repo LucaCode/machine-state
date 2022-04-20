@@ -1,2 +1,2 @@
-# machine-stats
-Small package to get stats of the current machine.
+# machine-state
+Small package to get the state of the current machine.
