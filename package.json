@@ -1,7 +1,7 @@
 {
-  "name": "machine-stats",
+  "name": "machine-state",
   "version": "0.3.0",
-  "description": "Small package to get stats of the current machine.",
+  "description": "Small package to get the state of the current machine.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",

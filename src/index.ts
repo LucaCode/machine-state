@@ -14,26 +14,26 @@ const pidUsage = require('pidusage');
 
 const DISK_PATTERN = /^(\S+)\n?\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+?)\n/mg;
 
-export default class MachineStats {
+export default class MachineState {
 
     static async getGeneralInfo(): Promise<object> {
         const cpusInfo = cpus();
         return {
-            id: MachineStats.id,
+            id: MachineState.id,
             cpuModel: cpusInfo[0].model,
             cpuCount: cpusInfo.length,
             platform: platform(),
-            os: await MachineStats.getOs()
+            os: await MachineState.getOs()
         };
     }
 
     static async getResourceUsageInfo(): Promise<object>
     {
         const [pidUsage,drive,cpuUsage,memMb] = await Promise.all([
-            MachineStats.getPidInfo(),
-            MachineStats.getHardDriveInfo(),
-            MachineStats.getAverageCpuUsage(),
-            MachineStats.getMemoryUsage()
+            MachineState.getPidInfo(),
+            MachineState.getHardDriveInfo(),
+            MachineState.getAverageCpuUsage(),
+            MachineState.getMemoryUsage()
         ]);
         return {
             machine: {
@@ -51,7 +51,7 @@ export default class MachineStats {
 
     static async getHardDriveInfo(): Promise<{ totalGb: number, usedGb: number, usedPercentage: number }> {
         try {
-            return await MachineStats.processDriveInfo()
+            return await MachineState.processDriveInfo()
                 .then((res) => {
                     return Promise.resolve({
                         totalGb: res.totalGb,
@@ -64,9 +64,9 @@ export default class MachineStats {
 
     static getAverageCpuUsage(): Promise<number> {
         return new Promise((resolve) => {
-            const startMeasure = MachineStats.processAverageCpuUsage();
+            const startMeasure = MachineState.processAverageCpuUsage();
             setTimeout(() => {
-                const endMeasure = MachineStats.processAverageCpuUsage();
+                const endMeasure = MachineState.processAverageCpuUsage();
                 const idleDifference = endMeasure.avgIdle - startMeasure.avgIdle;
                 const totalDifference = endMeasure.avgTotal - startMeasure.avgTotal;
                 const cpuPercentage = (10000 - Math.round(10000 * idleDifference / totalDifference)) / 100;
@@ -83,7 +83,7 @@ export default class MachineStats {
                     totalMem = os.totalmem() / 1024;
                     freeMem = os.freemem() / 1024;
                     if (os.platform() === 'darwin') {
-                        const mem = yield MachineStats.darwinMem.memory();
+                        const mem = yield MachineState.darwinMem.memory();
                         totalMem = mem.total;
                         freeMem = mem.total - mem.used
                     }
@@ -142,7 +142,7 @@ export default class MachineStats {
                 headline = args;
                 return;
             }
-            dfInfo.push(MachineStats.createDiskInfo(headline, args))
+            dfInfo.push(MachineState.createDiskInfo(headline, args))
         });
         return dfInfo
     }
@@ -157,10 +157,10 @@ export default class MachineStats {
 
     private static processDriveInfo() {
         const diskName = '/';
-        return MachineStats.exec('df -kP')().then((out) => {
+        return MachineState.exec('df -kP')().then((out) => {
             let diskInfo: any = null;
             let main = null;
-            let lines = MachineStats.parseDfStdout(out);
+            let lines = MachineState.parseDfStdout(out);
             for (let i = 0; i < lines.length; i++) {
                 if (lines[i]['Mounted on'] === diskName) {
                     diskInfo = lines[i];
@@ -193,10 +193,10 @@ export default class MachineStats {
 
     static getOs(): Promise<string> {
         const platform = os.platform();
-        if (platform === 'linux') return MachineStats.getOsLinux()
-        else if (platform === 'darwin') return MachineStats.getOsDarwin();
-        else if(platform === 'win32') return MachineStats.getOsWin();
-        return MachineStats.getOsLast();
+        if (platform === 'linux') return MachineState.getOsLinux()
+        else if (platform === 'darwin') return MachineState.getOsDarwin();
+        else if(platform === 'win32') return MachineState.getOsWin();
+        return MachineState.getOsLast();
     }
 
     private static getOsLast(): Promise<string> {
@@ -214,7 +214,7 @@ export default class MachineStats {
         return new Promise(function (resolve) {
             cp.exec('wmic os get Caption /value', {shell: true}, function (err, out) {
                 if (err && !out) {
-                    return MachineStats.getOsLast();
+                    return MachineState.getOsLast();
                 }
                 resolve(out.match(/[\n\r].*Caption=\s*([^\n\r]*)/)[1]);
             })
@@ -225,7 +225,7 @@ export default class MachineStats {
         return new Promise(function (resolve) {
             cp.exec('sw_vers', {shell: true}, function (err, out) {
                 if (err && !out) {
-                    return MachineStats.getOsLast();
+                    return MachineState.getOsLast();
                 }
                 const version = out.match(/[\n\r].*ProductVersion:\s*([^\n\r]*)/)[1];
                 const distribution = out.match(/.*ProductName:\s*([^\n\r]*)/)[1];
@@ -238,7 +238,7 @@ export default class MachineStats {
         return new Promise<string>((resolve) => {
             fs.readFile('/etc/issue', function (err, out: any) {
                 if (err) {
-                    return MachineStats.getOsLast();
+                    return MachineState.getOsLast();
                 }
                 out = out.toString();
                 let version = out.match(/[\d]+(\.[\d][\d]?)?/);
@@ -255,7 +255,7 @@ export default class MachineStats {
                 } else if (version === null) {
                     fs.readFile('/etc/redhat-release', (err, out: any) => {
                         if (err) {
-                            return MachineStats.getOsLast();
+                            return MachineState.getOsLast();
                         }
                         out = out.toString();
                         version = out.match(/[\d]+(\.[\d][\d]?)?/);
@@ -287,7 +287,7 @@ export default class MachineStats {
      */
     static async getPidInfo(): Promise<{cpu: number,memory: number}>
     {
-        const pidUsage = await MachineStats.getPidUsage();
+        const pidUsage = await MachineState.getPidUsage();
         return {
             cpu: pidUsage.cpu,
             memory: pidUsage.memory / 1e+6
@@ -297,7 +297,7 @@ export default class MachineStats {
     private static darwinMem = {
         PAGE_SIZE: 4096,
         physicalMemory: co.wrap(function * () {
-            let res = yield (MachineStats.exec('sysctl hw.memsize')());
+            let res = yield (MachineState.exec('sysctl hw.memsize')());
             res = res.trim().split(' ')[1];
             return parseInt(res)
         }),
@@ -311,7 +311,7 @@ export default class MachineStats {
             };
 
             let ret = {};
-            let res = yield (MachineStats.exec('vm_stat')());
+            let res = yield (MachineState.exec('vm_stat')());
             let lines = res.split('\n');
 
             lines = lines.filter(x => x !== '');
@@ -324,14 +324,14 @@ export default class MachineStats {
                 if (mappings[key]) {
                     const k = mappings[key];
 
-                    ret[k] = val * MachineStats.darwinMem.PAGE_SIZE
+                    ret[k] = val * MachineState.darwinMem.PAGE_SIZE
                 }
             });
             return ret
         }),
         memory: co.wrap(function * () {
-            const total = yield MachineStats.darwinMem.physicalMemory();
-            const stats = yield MachineStats.darwinMem.vmStats();
+            const total = yield MachineState.darwinMem.physicalMemory();
+            const stats = yield MachineState.darwinMem.vmStats();
             const used = (stats.wired + stats.active + stats.inactive);
             return { used: used, total: total }
         })
