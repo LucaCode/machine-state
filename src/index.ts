@@ -19,7 +19,7 @@ export default class MachineState {
     static async getGeneralInfo(): Promise<object> {
         const cpusInfo = cpus();
         return {
-            id: MachineState.id,
+            machineId: MachineState.machineId,
             cpuModel: cpusInfo[0].model,
             cpuCount: cpusInfo.length,
             platform: platform(),
@@ -45,7 +45,7 @@ export default class MachineState {
         };
     }
 
-    static get id() {
+    static get machineId() {
         return machineId;
     }
 
