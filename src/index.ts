@@ -11,8 +11,7 @@ import {cpus, platform} from "os";
 import {machineId} from "./machineId";
 const cp = require('child_process');
 const pidUsage = require('pidusage');
-
-const DISK_PATTERN = /^(\S+)\n?\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+?)\n/mg;
+import nodeDiskInfo = require('node-disk-info');
 
 export default class MachineState {
 
@@ -29,7 +28,7 @@ export default class MachineState {
 
     static async getResourceUsageInfo(): Promise<object>
     {
-        const [pidUsage,drive,cpuUsage,memMb] = await Promise.all([
+        const [pidUsage,hardDrive,cpuUsage,memMb] = await Promise.all([
             MachineState.getPidInfo(),
             MachineState.getHardDriveInfo(),
             MachineState.getAverageCpuUsage(),
@@ -37,7 +36,7 @@ export default class MachineState {
         ]);
         return {
             machine: {
-                drive,
+                hardDrive,
                 memory: {totalMemMb: memMb.totalMemMb, usedMemMb: memMb.usedMemMb},
                 cpu: cpuUsage
             },
@@ -49,17 +48,22 @@ export default class MachineState {
         return machineId;
     }
 
-    static async getHardDriveInfo(): Promise<{ totalGb: number, usedGb: number, usedPercentage: number }> {
+    static async getHardDriveInfo(): Promise<{ total: number, used: number, usedPercentage: number }> {
         try {
-            return await MachineState.processDriveInfo()
-                .then((res) => {
-                    return Promise.resolve({
-                        totalGb: res.totalGb,
-                        usedGb: res.usedGb,
-                        usedPercentage: res.usedPercentage
-                    });
-                })
-        } catch (e) {return {totalGb: 0, usedGb: 0, usedPercentage: 0};}
+            const disks = await nodeDiskInfo.getDiskInfo();
+            let used = 0, total = 0;
+            for(let i = 0, len = disks.length; i < len; i++) {
+                const disk = disks[i];
+                used += disk.used;
+                total += disk.blocks;
+            }
+            return {
+                total,
+                used,
+                usedPercentage: total <= 0 ? 0 :
+                    (Math.round((used / total * 100) * 100) / 100)
+            };
+        } catch (e) {return {total: 0, used: 0, usedPercentage: 0};}
     }
 
     static getAverageCpuUsage(): Promise<number> {
@@ -130,65 +134,6 @@ export default class MachineState {
                 })
             })
         }
-    }
-
-    private static parseDfStdout(stdout) {
-        let dfInfo: any = [];
-        let headline: any[] = [];
-
-        stdout.replace(DISK_PATTERN, function () {
-            let args = Array.prototype.slice.call(arguments, 1, 7);
-            if (arguments[7] === 0) {
-                headline = args;
-                return;
-            }
-            dfInfo.push(MachineState.createDiskInfo(headline, args))
-        });
-        return dfInfo
-    }
-
-    private static createDiskInfo(headlineArgs, args) {
-        const info = {};
-        headlineArgs.forEach((h, i) => {
-            info[h] = args[i]
-        });
-        return info
-    }
-
-    private static processDriveInfo() {
-        const diskName = '/';
-        return MachineState.exec('df -kP')().then((out) => {
-            let diskInfo: any = null;
-            let main = null;
-            let lines = MachineState.parseDfStdout(out);
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i]['Mounted on'] === diskName) {
-                    diskInfo = lines[i];
-                    continue;
-                }
-                if (lines[i]['Mounted on'] === '/') {
-                    main = lines[i];
-                }
-            }
-            if (diskInfo === null) {
-                if (main === null) {
-                    throw new Error('disk name invalid and / not found');
-                }
-                diskInfo = main;
-            }
-            const total = Math.ceil(((diskInfo['1K-blocks'] || diskInfo['1024-blocks']) * 1024) / Math.pow(1024, 2));
-            const used = Math.ceil(diskInfo.Used * 1024 / Math.pow(1024, 2));
-
-            const totalGb = parseFloat((total / 1024).toFixed(1));
-            const usedGb = parseFloat((used / 1024).toFixed(1));
-            const usedPercentage = parseFloat((100 * usedGb / totalGb).toFixed(1));
-
-            return Promise.resolve({
-                totalGb,
-                usedGb,
-                usedPercentage,
-            });
-        })
     }
 
     static getOs(): Promise<string> {
