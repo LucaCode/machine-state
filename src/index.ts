@@ -11,7 +11,8 @@ import {cpus, platform} from "os";
 import {machineId} from "./machineId";
 const cp = require('child_process');
 const pidUsage = require('pidusage');
-import nodeDiskInfo = require('node-disk-info');
+import * as drivelist from "drivelist";
+import checkDiskSpace from 'check-disk-space'
 
 export default class MachineState {
 
@@ -28,15 +29,15 @@ export default class MachineState {
 
     static async getResourceUsageInfo(): Promise<object>
     {
-        const [pidUsage,hardDrive,cpuUsage,memMb] = await Promise.all([
+        const [pidUsage,storage,cpuUsage,memMb] = await Promise.all([
             MachineState.getPidInfo(),
-            MachineState.getHardDriveInfo(),
+            MachineState.getStorageInfo(),
             MachineState.getAverageCpuUsage(),
             MachineState.getMemoryUsage()
         ]);
         return {
             machine: {
-                hardDrive,
+                storage,
                 memory: {totalMemMb: memMb.totalMemMb, usedMemMb: memMb.usedMemMb},
                 cpu: cpuUsage
             },
@@ -48,22 +49,46 @@ export default class MachineState {
         return machineId;
     }
 
-    static async getHardDriveInfo(): Promise<{ total: number, used: number, usedPercentage: number }> {
+    static async getStorageInfo(): Promise<{ size: number, used: number, usedPercentage: number }> {
         try {
-            const disks = await nodeDiskInfo.getDiskInfo();
-            let used = 0, total = 0;
-            for(let i = 0, len = disks.length; i < len; i++) {
-                const disk = disks[i];
-                used += disk.used;
-                total += disk.blocks;
+            let sizeSum = 0, freeSum = 0;
+            if(process.platform !== 'win32') {
+                const space = await checkDiskSpace('/');
+                sizeSum += space.size;
+                freeSum += space.free;
             }
+            else {
+                const drives = await MachineState.getWindowsDrives();
+                await Promise.all(drives.map(async drive => {
+                    const space = await checkDiskSpace(drive);
+                    sizeSum += space.size;
+                    freeSum += space.free;
+                }));
+            }
+            const used = sizeSum - freeSum;
             return {
-                total,
+                size: sizeSum,
                 used,
-                usedPercentage: total <= 0 ? 0 :
-                    (Math.round((used / total * 100) * 100) / 100)
+                usedPercentage: sizeSum <= 0 ? 0 :
+                    (Math.round(((used / sizeSum) * 100) * 100) / 100)
             };
-        } catch (e) {return {total: 0, used: 0, usedPercentage: 0};}
+        } catch (e) {return {size: 0, used: 0, usedPercentage: 0};}
+    }
+
+    static async getWindowsDrives(): Promise<string[]> {
+        try {
+            const driveNames: string[] = [];
+            const drives = await drivelist.list();
+            for(const drive of drives) {
+                for(const mountPoint of drive.mountpoints) {
+                    const path = mountPoint.path;
+                    if(path.indexOf(":") === -1 || driveNames.includes(path)) continue;
+                    driveNames.push(path);
+                }
+            }
+            return driveNames;
+        }
+        catch(_) {return ['C:'];}
     }
 
     static getAverageCpuUsage(): Promise<number> {
