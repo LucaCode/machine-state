@@ -11,7 +11,6 @@ import {cpus, platform} from "os";
 import {machineId} from "./machineId";
 const cp = require('child_process');
 const pidUsage = require('pidusage');
-import * as drivelist from "drivelist";
 import checkDiskSpace from 'check-disk-space'
 
 export default class MachineState {
@@ -77,16 +76,16 @@ export default class MachineState {
 
     static async getWindowsDrives(): Promise<string[]> {
         try {
-            const driveNames: string[] = [];
-            const drives = await drivelist.list();
-            for(const drive of drives) {
-                for(const mountPoint of drive.mountpoints) {
-                    const path = mountPoint.path;
-                    if(path.indexOf(":") === -1 || driveNames.includes(path)) continue;
-                    driveNames.push(path);
-                }
-            }
-            return driveNames;
+            return await new Promise<string[]>((res,rej) => {
+                cp.exec("wmic logicaldisk get name",(err, stout) => {
+                    if(err && !stout) rej(new Error("Could not resolve drives."));
+                    const drives = stout.split('\r\r\n')
+                        .filter(value => /[A-Za-z]:/.test(value))
+                        .map(value => value.trim())
+                    if(drives.length < 1) rej(new Error("No drives could be found."));
+                    else res(drives);
+                });
+            });
         }
         catch(_) {return ['C:'];}
     }

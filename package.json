@@ -28,8 +28,7 @@
     "co": "4.6.0",
     "pidusage": "2.0.21",
     "child_process": "1.0.2",
-    "check-disk-space": "3.3.0",
-    "drivelist": "9.2.4"
+    "check-disk-space": "3.3.0"
   },
   "devDependencies": {
     "typescript": "^4.5.5"
