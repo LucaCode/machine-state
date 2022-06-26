@@ -1,6 +1,6 @@
 {
   "name": "machine-state",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Small package to get the state of the current machine.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
